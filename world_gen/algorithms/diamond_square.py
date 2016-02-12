@@ -3,7 +3,7 @@ import numpy as np
 from numpy import random as rand
 
 
-def diamond_square(n, seed=None, magnitude=16):
+def diamond_square(n, seed=None, magnitude=16, wrapping=False):
     """Takes a seed and a value n and returns a heightmap of size 2^n+1"""
 
     # Diamond step
@@ -80,22 +80,22 @@ def diamond_square(n, seed=None, magnitude=16):
         west_south = get_adjacent(south_mid, 3, distance)
 
         node_count = 4
-        if north_mid.wrapping:
+        if north_mid.edge:
             node_count = 3
         north_avg = ((north_east.val + north_north.val +
                       north_west.val + north_south.val) // node_count)
         node_count = 4
-        if east_mid.wrapping:
+        if east_mid.edge:
             node_count = 3
         east_avg = ((east_east.val + east_north.val +
                      east_west.val + east_south.val) // node_count)
         node_count = 4
-        if south_mid.wrapping:
+        if south_mid.edge:
             node_count = 3
         south_avg = ((south_east.val + south_north.val +
                       south_west.val + south_south.val) // node_count)
         node_count = 4
-        if west_mid.wrapping:
+        if west_mid.edge:
             node_count = 3
         west_avg = ((west_east.val + west_north.val +
                      west_west.val + west_south.val) // node_count)
@@ -105,9 +105,10 @@ def diamond_square(n, seed=None, magnitude=16):
         south_mid.set_val(south_avg + rand.randint(-magnitude, magnitude + 1))
         east_mid.set_val(east_avg + rand.randint(-magnitude, magnitude + 1))
         west_mid.set_val(west_avg + rand.randint(-magnitude, magnitude + 1))
-
-        # Otherwise perform another step on each of the 4 subsquares
-        magnitude *= .9
+        # north_mid.set_val(north_avg + rand.randint(0, magnitude + 1))
+        # south_mid.set_val(south_avg + rand.randint(0, magnitude + 1))
+        # east_mid.set_val(east_avg + rand.randint(0, magnitude + 1))
+        # west_mid.set_val(west_avg + rand.randint(0, magnitude + 1))
 
         return
 
@@ -116,57 +117,70 @@ def diamond_square(n, seed=None, magnitude=16):
     assert n > 0, "n must be > 0: %r" % n
 
     # Set the seed for the RNG
-    if seed is not None:
-        rand.seed(seed)
+    if seed is None:
+        # Set seed to any value between 0 and max seed value
+        seed = rand.randint(0, 4294967295)
+    rand.seed(seed)
     width = pow(2, n) + 1  # Size of square
     hmap = np.empty([width, width], dtype=Node)  # 2D array of the heightmap
 
-    print("Generating heightmap of size " + str(width) + " x " + str(width))
+    print("Generating heightmap of size " + str(width) + " x " + str(width)
+          + " using seed " + str(seed))
 
     # Build nodes
     for x in range(len(hmap)):
-        for y in range(len(hmap[x])):
-            hmap[x][y] = Node()
-            hmap[x][y].x = x
-            hmap[x][y].y = y
+        for y in range(len(hmap)):
+            hmap[x, y] = Node()
+            hmap[x, y].x = x
+            hmap[x, y].y = y
     # Build node connections
     for x in range(width):
         for y in range(width):
-            node = hmap[x][y]
+            node = hmap[x, y]
             # Check if node is an edge node or not and set adjacent to wrap
+            # if wrapping is enabled otherwise make fake nodes
             if x == 0:
-                # node.left = hmap[width - 1][y]
-                node.left = Node()
-                node.left.fake = True
-                node.wrapping = True
+                if wrapping:
+                    node.left = hmap[width - 2, y]
+                else:
+                    node.left = Node()
+                    node.left.fake = True
+                    node.edge = True
             else:
-                node.left = hmap[x - 1][y]
+                node.left = hmap[x - 1, y]
             if x == width - 1:
-                # node.right = hmap[0][y]
-                node.right = Node()
-                node.right.fake = True
-                node.wrapping = True
+                if wrapping:
+                    node.right = hmap[1, y]
+                else:
+                    node.right = Node()
+                    node.right.fake = True
+                    node.edge = True
             else:
-                node.right = hmap[x + 1][y]
+                node.right = hmap[x + 1, y]
             if y == 0:
-                # node.up = hmap[x][width - 1]
-                node.up = Node()
-                node.up.fake = True
-                node.wrapping = True
+                if wrapping:
+                    node.up = hmap[x, width - 2]
+                else:
+                    node.up = Node()
+                    node.up.fake = True
+                    node.edge = True
             else:
-                node.up = hmap[x][y - 1]
+                node.up = hmap[x, y - 1]
             if y == width - 1:
-                # node.down = hmap[x][0]
-                node.down = Node()
-                node.down.fake = True
-                node.wrapping = True
+                if wrapping:
+                    node.down = hmap[x, 1]
+                else:
+                    node.down = Node()
+                    node.down.fake = True
+                    node.edge = True
             else:
-                node.down = hmap[x][y + 1]
+                node.down = hmap[x, y + 1]
 
     # Set corners to random values
     corners = get_corners(hmap)
     for corner in corners:
-        hmap[corner].set_val(rand.randint(0, 256))
+        # hmap[corner].set_val(rand.randint(0, 256))
+        hmap[corner].set_val(rand.randint(64, 192))
     # Wrap
     # hmap[corners[1]] = hmap[corners[3]]
     # hmap[corners[0]] = hmap[corners[2]]
@@ -175,18 +189,25 @@ def diamond_square(n, seed=None, magnitude=16):
     step_size = distance
 
     while step_size >= 1:
+        # if step_size == 1:
+        #     magnitude = 0
+        print("Working on squares of size: " + str(step_size))
+        print("\tMagnitude: " + str(magnitude))
         diamond_step(hmap, magnitude, distance)
         square_step(hmap, magnitude, distance)
+        magnitude *= .9
+        # Decrease magnitude
+        # magnitude = int(magnitude * ((1.5*distance + step_size)
+        #                          / (1.5*distance + distance))) + 1
         step_size = step_size // 2
 
     # Convert hmap from Nodes to ints
     intmap = np.empty([width, width], dtype=int)
     for x in range(len(hmap)):
-        for y in range(len(hmap[x])):
-            if hmap[x][y].val is None:
-                continue
-            else:
-                intmap[x][y] = hmap[x][y].val
+        for y in range(len(hmap)):
+            assert hmap[x, y].val is not None, "(" + str(x) + \
+                ", " + str(y) + ") has no value"
+            intmap[x, y] = hmap[x, y].val
 
     return intmap
 
@@ -221,14 +242,17 @@ def get_center(arr):
     width = len(arr)
     # Make sure a center exists
     assert width % 2 == 1, "array has no midpoint. size is %r" % width
+    # Find center index
     center = width // 2
     return (center, center)
 
 
 def get_adjacent(point, dir, distance):
+    """Find node distance away from point in direction dir"""
     cur_point = point
     for step in range(distance):
         cur_point = cur_point.get_adjacent(dir)
+        # Fake edge nodes when not wrapping should return 0
         if cur_point.fake:
             temp_node = Node()
             temp_node.val = 0
@@ -244,9 +268,7 @@ def to_image(arr):
     img = np.empty([width, width, 3], dtype=np.float32)
     for x in range(width):
         for y in range(width):
-            val = arr[x][y]
-            for z in range(3):
-                img[x][y][z] = val
+            img[x, y, :] = arr[x, y]
     return img
 
 
@@ -261,7 +283,7 @@ class Node():
         self.left = None
         self.x = 0
         self.y = 0
-        self.wrapping = False
+        self.edge = False
         self.val = None
         return
 
