@@ -268,7 +268,7 @@ def to_image(arr):
     img = np.empty([width, width, 3], dtype=np.float32)
     for x in range(width):
         for y in range(width):
-            img[x, y, :] = arr[x, y]
+            img[x, y, :] = round(arr[x, y])
     return img
 
 

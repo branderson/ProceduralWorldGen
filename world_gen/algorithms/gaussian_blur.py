@@ -6,7 +6,7 @@ import math
 import numpy as np
 
 
-def gaussian_blur_image(image, channels, r, rounding=False):
+def gaussian_blur_image(image, channels, r, rounding=True):
     width = len(image)
     height = len(image[0])
     blurred = np.empty([width, height, channels], dtype=int)

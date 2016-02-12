@@ -13,7 +13,7 @@ def main():
     # Create terrain
     hmap = algorithms.diamond_square(8, magnitude=15, wrapping=True)
     # Smooth terrain
-    hmap_blurred = algorithms.gaussian_blur_channel(hmap, blur_radius, True)
+    hmap_blurred = algorithms.gaussian_blur_channel(hmap, blur_radius, False)
 
     # Convert to images
     hmap_image = algorithms.to_image(hmap)
